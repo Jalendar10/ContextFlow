@@ -77,3 +77,28 @@ test('live speed preference only changes supported GPT-5.5 reasoning requests',a
   assert.equal(bodies[1].reasoning,undefined);assert.equal(bodies[2].reasoning,undefined);
  }finally{rmSync(directory,{recursive:true,force:true})}
 });
+
+test('interview mic is context only; both speakers and marked passages ground follow-ups',async()=>{
+ const h=harness();await h.meeting.start({kind:'tab',microphone:true,responseStyle:'interview',detectionTrack:'all',context:{content:'JD: SQL engineer',additionalContent:'Résumé: SQL reporting'}});
+ const s=h.meeting.session;
+ try{
+  h.pipes[1].onText({track:'microphone',text:'How can I explain my reporting work?',final:true,boundary:true});
+  await s.detectionChain;assert.equal(h.calls.length,0);assert.equal(s.questions.length,0);
+  h.meeting.consider(s.id,s.turns[0].id,true);assert.equal(h.calls.length,0);assert.equal(h.meeting.view().turns[0].considered,true);
+  h.pipes[0].onText({track:'meeting',text:'What was your approach?',final:true,boundary:true});
+  await s.answerChain;
+  const input=JSON.parse(h.calls[0].question);assert.match(input.meetingContext,/reporting work/);assert.match(input.meetingContext,/your approach/);assert.match(input.consideredContext,/reporting work/);
+  assert.equal(input.referenceContent.content,'JD: SQL engineer');assert.equal(input.referenceContent.additionalContent,'Résumé: SQL reporting');assert.deepEqual(h.calls[0].evidence,[]);assert.match(h.calls[0].system,/ONLY on these JD/);
+  h.meeting.assess(s.id);await s.answerChain;assert.match(h.calls.at(-1).system,/ASSESSMENT REQUEST/);assert.equal(s.questions.at(-1).track,'assessment');
+  h.meeting.consider(s.id,s.turns[0].id,false);assert.equal(s.turns[0].considered,false);
+ }finally{h.meeting.discard()}
+});
+test('split questions retain both fragments and microphone answer in the response context',async()=>{
+ const h=harness();await h.meeting.start({kind:'tab',microphone:true,responseStyle:'interview',autoAnswer:false});const s=h.meeting.session;
+ try{
+  for(const [track,text] of [['meeting','Can you explain the'],['microphone','I used SQL reports.'],['meeting','reporting approach in more detail?']])h.meeting.transcript(s,{track,text,final:true,boundary:true});
+  h.meeting.respondToTurn(s.id,s.turns.at(-1).id);await s.answerChain;
+  const text=JSON.parse(h.calls[0].question).meetingContext;assert.match(text,/Can you explain the/);assert.match(text,/I used SQL reports/);assert.match(text,/reporting approach/);
+ }finally{h.meeting.discard()}
+});
+test('meeting details are retained and supplied to answers with a selected agent',async()=>{const h=harness();h.meeting.agents={get:()=>({id:'agent',name:'Interview agent',provider:'ollama',model:'test-local',responseStyle:'interview',context:{content:'JD',additionalContent:'Resume'}})};try{await h.meeting.start({kind:'tab',autoAnswer:false,agentId:'agent',details:{type:'Technical interview',role:'Data engineer',notes:'Focus on SQL trade-offs'}});const s=h.meeting.session;h.meeting.manual(s.id,'Explain the reporting approach');await s.answerChain;assert.equal(h.meeting.view().details.type,'Technical interview');assert.equal(JSON.parse(h.calls[0].question).meetingDetails.notes,'Focus on SQL trade-offs');assert.equal(JSON.parse(h.calls[0].question).referenceContent.content,'JD');}finally{h.meeting.discard()}});

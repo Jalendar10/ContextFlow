@@ -180,3 +180,18 @@ body input::placeholder,body textarea::placeholder{color:#76767c!important}
  .cf-sidebar .cf-section-title,.cf-sidebar .cf-add,.cf-sidebar .cf-sidebar-bottom{display:flex}
  .cf-sidebar .cf-sidebar-bottom{flex-direction:column}
 }
+/* Reading view reserves the viewport for the two resizable transcript panels. */
+.meeting-view-actions{display:flex;gap:8px;margin-left:auto;align-items:center}
+.meeting-modal.meeting-focus{padding:10px 14px;gap:6px;background:#f5f5f7}
+.meeting-focus>.meeting-agent-select,.meeting-focus>.meeting-agent-status,.meeting-focus>.meeting-configuration,.meeting-focus>.meeting-controls{display:none!important}
+.meeting-focus>.meeting-heading{margin:0;padding-bottom:4px;align-items:center}
+.meeting-focus .meeting-heading h2{margin:0;font-size:17px}
+.meeting-focus .meeting-heading small{display:block;font-size:12px;color:#6e6e73}
+.meeting-focus>.meeting-columns{flex:1 1 0;min-height:0}
+.meeting-focus .meeting-turn p,.meeting-focus .meeting-question p,.meeting-focus .meeting-question li{font-size:16px;line-height:1.75}
+.meeting-focus:fullscreen{width:100vw!important;height:100dvh!important;max-height:none!important}
+.meeting-presets{display:flex;flex-wrap:wrap;align-items:end;gap:8px;flex-shrink:0}
+.meeting-presets label{display:flex;flex-direction:column;gap:4px;font-size:12px;flex:1;min-width:160px}
+.meeting-presets input,.meeting-presets select{padding:8px;min-height:36px}
+.meeting-presets small{flex-basis:100%}
+.meeting-focus>.meeting-presets{display:none}

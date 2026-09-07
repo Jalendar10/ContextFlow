@@ -1,3 +1,5 @@
+import {MeetingPresets} from './meeting-presets.mjs';
+import {extractDocument} from './document-text.mjs';
 import pathModule from 'node:path';
 import {Workspaces} from './workspaces.mjs';
 import {ProviderConfig} from './provider-config.mjs';
@@ -14,6 +16,7 @@ function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),public
  desktop ||= new Desktop({ai,store});
  const history=new MeetingHistory(workspaceDirectory?pathModule.join(workspaceDirectory,'meetings'):undefined);
  const agents=new AgentProfiles(ai,workspaceDirectory?new ProviderConfig({directory:workspaceDirectory}):ai.config);
+ const presets=new MeetingPresets(agents.storage||new ProviderConfig());
  meeting ||= new LiveMeeting({ai,store,desktop,history,agents});
  const localOrigins=new Set(['http://localhost:5173','http://127.0.0.1:5173','http://localhost:4173','http://127.0.0.1:4173']);
  return async function api(req,res,next){
@@ -37,6 +40,8 @@ function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),public
    }
    if(path==='/api/meetings'&&req.method==='GET')return reply(200,{meetings:history.list()});
    if(path.startsWith('/api/meetings/')){const id=path.split('/').pop();if(req.method==='GET')return reply(200,history.get(id));if(req.method==='DELETE'){if(meeting.view().id===id)throw Error('Start another session before deleting this meeting.');history.remove(id);return reply(200,{ok:true});}}
+   if(path==='/api/meeting-presets'&&req.method==='GET')return reply(200,{presets:presets.list()});
+   if(path.startsWith('/api/meeting-presets/')&&req.method==='DELETE'){presets.remove(path.split('/').pop());return reply(200,{ok:true});}
    if(path==='/api/agents'&&req.method==='GET')return reply(200,{agents:agents.list()});
    if(path.startsWith('/api/agents/')&&req.method==='DELETE'){agents.remove(path.split('/').pop());return reply(200,{ok:true});}
    if(path==='/api/usage'&&req.method==='GET')return reply(200,{transactions:ai.usage.list(),rates:ai.usage.rates()});
@@ -75,15 +80,19 @@ function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),public
    const parts=[];let bytes=0;
    for await(const chunk of req){bytes+=chunk.length;if(bytes>12*1024*1024){reply(413,{error:'Capture request is too large. Nothing was stored.'});return;}parts.push(chunk);}
    const body=JSON.parse(Buffer.concat(parts).toString());
+   if(path==='/api/document-text'&&req.method==='POST')return reply(200,await extractDocument(body));
    if(path==='/api/workspaces'&&req.method==='POST')return reply(201,registry.create(body.name));
    if(path==='/api/live'&&req.method==='POST')return reply(200,await meeting.start(body));
    if(path==='/api/live/stop'&&req.method==='POST')return reply(200,await meeting.stop(body.id));
+   if(path==='/api/live/consider'&&req.method==='POST')return reply(200,meeting.consider(body.id,body.turnId,body.considered));
+   if(path==='/api/live/assess'&&req.method==='POST')return reply(200,meeting.assess(body.id));
    if(path==='/api/live/respond'&&req.method==='POST')return reply(200,meeting.respondToTurn(body.id,body.turnId));
    if(path==='/api/live/question'&&req.method==='POST')return reply(200,meeting.manual(body.id,body.question));
    if(path==='/api/desktop/permission'&&req.method==='POST')return reply(200,await desktop.permission(body.kind));
    if(path==='/api/desktop/capture'&&req.method==='POST')return reply(200,{source:await desktop.capture(body.app,body.sourceId)});
    if(path==='/api/desktop/audio'&&req.method==='POST')return reply(200,await desktop.start(body.app,body.microphone===true));
    if(path==='/api/connections'&&req.method==='POST')return reply(200,await ai.addConnection(body));
+   if(path==='/api/meeting-presets'&&req.method==='POST')return reply(200,{preset:presets.save(body)});
    if(path==='/api/agents'&&req.method==='POST')return reply(200,{agent:await agents.save(body)});
    if(path==='/api/usage/rate'&&req.method==='PUT'){ai.usage.setRate(body.key,body.rate);return reply(200,{ok:true});}
    if(path==='/api/transcription-mode'&&req.method==='PUT')return reply(200,await ai.setTranscriptionMode(body.mode));

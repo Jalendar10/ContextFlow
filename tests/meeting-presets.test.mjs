@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {ProviderConfig} from '../server/provider-config.mjs';
+import {MeetingPresets} from '../server/meeting-presets.mjs';
+test('named meeting setups persist independently and update without losing others',()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cf-presets-'));try{const profiles=new MeetingPresets(new ProviderConfig({directory:dir,env:{}}));const settings={kind:'app',appBundleId:'com.example.app',microphone:true,autoAnswer:false,agentId:'agent-a',responseStyle:'interview',detectionTrack:'meeting',details:{type:'Technical interview',notes:'old details'},context:{content:'JD',additionalContent:'Resume'}};const one=profiles.save({name:'Technical round',settings});const two=profiles.save({name:'Screening',settings:{...settings,details:{type:'Recruiter screening'}}});profiles.save({...one,name:'Technical round updated'});const restored=new MeetingPresets(new ProviderConfig({directory:dir,env:{}})).list();assert.equal(restored.length,2);assert.equal(restored.find(p=>p.id===one.id).settings.context.additionalContent,'Resume');assert.equal(restored.find(p=>p.id===two.id).settings.details.type,'Recruiter screening');assert.equal(restored[0].settings.details.notes,undefined);assert.equal(new MeetingPresets(new ProviderConfig({directory:path.join(dir,'other'),env:{}})).list().length,0);assert.throws(()=>profiles.save({name:'',settings}),/name/);assert.throws(()=>profiles.save({name:'Bad',settings:{...settings,autoAnswer:'yes'}}),/setting/);}finally{fs.rmSync(dir,{recursive:true,force:true})}});
