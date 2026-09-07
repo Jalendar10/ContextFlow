@@ -1,0 +1,2 @@
+export function scopedSources(sources,activeId,multiple=false){return sources.filter(s=>s.on&&(multiple||s.id===activeId));}
+export function citedSources(result){const cited=new Set([...result.answer.matchAll(/\[(\d+)\]/g)].map(m=>Number(m[1])));const groups=new Map();for(const e of result.evidence){if(!cited.has(e.citation))continue;const key=e.sourceId||e.url;if(!groups.has(key))groups.set(key,{...e,citations:[],text:''});const group=groups.get(key);group.citations.push(e.citation);group.text+=(group.text?'\n\n':'')+e.text;}return [...groups.values()];}

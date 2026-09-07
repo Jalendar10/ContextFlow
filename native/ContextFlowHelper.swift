@@ -89,13 +89,16 @@ func captureOCR(_ pid: pid_t, _ bundle: String) async throws {
 @available(macOS 15.0, *)
 final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
     let directory: URL
+    let realtime: Bool
+    var converters: [String: AVAudioConverter] = [:]
+    var pendingPCM: [String: Data] = [:]
     let queue = DispatchQueue(label: "contextflow.audio")
     var files: [String: AVAudioFile] = [:]
     var paths: [String: URL] = [:]
     var frames: [String: AVAudioFramePosition] = [:]
     var stream: SCStream?
     var stopping = false
-    init(directory: URL) { self.directory = directory }
+    init(directory: URL, realtime: Bool = false) { self.directory = directory; self.realtime = realtime }
     func flush(_ kind: String) {
         guard files[kind] != nil, let url = paths.removeValue(forKey: kind) else { return }
         var file = files.removeValue(forKey: kind)
@@ -114,6 +117,24 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
         let result = CMSampleBufferCopyPCMDataIntoAudioBufferList(sample, at: 0, frameCount: Int32(sample.numSamples), into: pcm.mutableAudioBufferList)
         guard result == noErr else { return }
         let kind = type == .microphone ? "microphone" : "app"
+        if realtime {
+            if converters[kind] == nil {
+                let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24000, channels: 1, interleaved: true)!
+                converters[kind] = AVAudioConverter(from: format, to: target)
+            }
+            guard let converter = converters[kind], let output = AVAudioPCMBuffer(pcmFormat: converter.outputFormat, frameCapacity: AVAudioFrameCount(Double(pcm.frameLength) * 24000 / format.sampleRate) + 64) else { return }
+            var supplied = false; var conversionError: NSError?
+            converter.convert(to: output, error: &conversionError) { _, state in
+                if supplied { state.pointee = .noDataNow; return nil }
+                supplied = true; state.pointee = .haveData; return pcm
+            }
+            if let conversionError { emit(["error": conversionError.localizedDescription]); return }
+            if let samples = output.int16ChannelData, output.frameLength > 0 {
+                pendingPCM[kind, default: Data()].append(Data(bytes: samples[0], count: Int(output.frameLength) * 2))
+                if pendingPCM[kind]!.count >= 9600 { emit(["event": "pcm", "track": kind, "data": pendingPCM[kind]!.base64EncodedString()]); pendingPCM[kind] = Data() }
+            }
+            return
+        }
         do {
             if files[kind] == nil {
                 let url = directory.appendingPathComponent(UUID().uuidString + ".wav")
@@ -153,7 +174,7 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
     func stop() async {
         if stopping { return }
         if let stream { try? await stream.stopCapture() }
-        queue.sync { stopping = true; for kind in Array(files.keys) { flush(kind) } }
+        queue.sync { stopping = true; for (kind, data) in pendingPCM where !data.isEmpty { emit(["event": "pcm", "track": kind, "data": data.base64EncodedString()]) }; pendingPCM.removeAll(); for kind in Array(files.keys) { flush(kind) } }
         emit(["event": "stopped"]); exit(0)
     }
 }
@@ -175,8 +196,8 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
                 if #available(macOS 14.0, *) { do { try await captureOCR(pid, args[3]) } catch { fail(error.localizedDescription) } } else { fail(error.localizedDescription) }
             }
         case "record":
-            guard #available(macOS 15.0, *), args.count == 6, let pid = Int32(args[2]), pid > 0 else { fail("App audio requires macOS 15 or later and a selected app.") }
-            let recorder = AudioCapture(directory: URL(fileURLWithPath: args[4]))
+            guard #available(macOS 15.0, *), (args.count == 6 || args.count == 7), let pid = Int32(args[2]), pid > 0 else { fail("App audio requires macOS 15 or later and a selected app.") }
+            let recorder = AudioCapture(directory: URL(fileURLWithPath: args[4]), realtime: args.count == 7 && args[6] == "pcm")
             do { try await recorder.start(pid: pid, bundle: args[3], microphone: args[5] == "true") } catch { fail(error.localizedDescription) }
             DispatchQueue.global().async { _ = readLine(); Task { await recorder.stop() } }
             // Keep the recorder alive until stop input, parent exit, or a capture error.

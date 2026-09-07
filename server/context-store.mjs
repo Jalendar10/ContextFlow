@@ -13,7 +13,7 @@ export class ContextStore {
   const browserKey=typeof data.browserKey==='string'?data.browserKey:null;
   let old=data.sourceId?this.sources.get(data.sourceId):null;
   if(data.sourceId&&!old)throw Error('This source was deleted. Select the tab again.');
-  if(old&&old.url!==url.href)throw Error('The page URL changed. Select the new tab content explicitly.');
+  if(old&&old.url!==url.href&&!(data.followNavigation===true&&tabId!==null&&old.tabId===tabId&&browserKey&&old.browserKey===browserKey))throw Error('The page URL changed. Select the new tab content explicitly.');
   if(!old)old=[...this.sources.values()].find(s=>tabId!==null?s.tabId===tabId&&s.browserKey===browserKey&&s.url===url.href:s.tabId===null&&s.url===url.href);
   const text=data.text.trim(),hash=createHash('sha256').update(text).digest('hex');
   const total=[...this.sources.values()].reduce((n,s)=>n+(s.id===old?.id?0:Buffer.byteLength(s.text)),0);

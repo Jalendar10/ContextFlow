@@ -4,7 +4,7 @@
   window.addEventListener('message',async event=>{
     if(event.source!==window || event.origin!==location.origin || event.data?.channel!=='contextflow:request')return;
     const {id,command,payload}=event.data;
-    if(typeof id!=='string'||!['ping','tabs','capture'].includes(command))return;
+    if(typeof id!=='string'||!['ping','tabs','capture','editor-assist'].includes(command))return;
     try {
       const result=await chrome.runtime.sendMessage({channel:'contextflow',command,payload});
       window.postMessage({channel:'contextflow:response',id,result},location.origin);

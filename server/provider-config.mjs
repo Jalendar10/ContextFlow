@@ -1,10 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 export const PROVIDERS={
+ elevenlabs:{id:'elevenlabs',name:'ElevenLabs',local:false,roles:['transcription'],env:'ELEVENLABS_API_KEY'},
+ deepgram:{id:'deepgram',name:'Deepgram',local:false,roles:['transcription'],env:'DEEPGRAM_API_KEY'},
  ollama:{id:'ollama',name:'Ollama',local:true,roles:['answer']},
  openai:{id:'openai',name:'OpenAI',local:false,roles:['answer','transcription'],env:'OPENAI_API_KEY'},
  anthropic:{id:'anthropic',name:'Anthropic',local:false,roles:['answer'],env:'ANTHROPIC_API_KEY'},
- gemini:{id:'gemini',name:'Google Gemini',local:false,roles:['answer'],env:'GEMINI_API_KEY'},
+ gemini:{id:'gemini',name:'Google Gemini',local:false,roles:['answer','transcription'],env:'GEMINI_API_KEY'},
  groq:{id:'groq',name:'Groq',local:false,roles:['answer','transcription'],env:'GROQ_API_KEY'}
 };
 export const TRANSCRIPTION_MODELS={openai:['gpt-transcribe','gpt-4o-transcribe','gpt-4o-mini-transcribe','whisper-1'],groq:['whisper-large-v3-turbo','whisper-large-v3']};
@@ -47,5 +49,5 @@ export class ProviderConfig {
   if(typeof model!=='string'||!model.trim()||model.length>200||!/^[-\w.:/]+$/.test(model))throw Error('Enter a valid model ID.');
   const next={...this.settings,[role]:{provider,model:model.trim()}};this.write('settings.json',next);this.settings=next;return next;
  }
- public(){return {answer:{...this.settings.answer},transcription:{...this.settings.transcription},providers:Object.values(this.providers).map(p=>({id:p.id,name:p.name,roles:p.roles,local:p.local,custom:!!p.custom,baseUrl:p.baseUrl,...this.keyInfo(p.id)}))};}
+ public(){return {transcriptionMode:this.settings.transcriptionMode||'streaming',fallback:this.settings.fallback||null,answer:{...this.settings.answer},transcription:{...this.settings.transcription},providers:Object.values(this.providers).map(p=>({id:p.id,name:p.name,roles:p.roles,local:p.local,custom:!!p.custom,baseUrl:p.baseUrl,...this.keyInfo(p.id)}))};}
 }

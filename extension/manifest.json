@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ContextFlow \u2014 Browser Context",
-  "version": "3.1.0",
+  "version": "3.2.1",
   "description": "Select real browser tabs in ContextFlow, inspect their current content, refresh captures and ask your local AI.",
   "permissions": [
     "tabs",

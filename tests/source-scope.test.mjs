@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {scopedSources,citedSources} from '../source-scope.js';
+test('default context includes only the open enabled source; multi-source is explicit',()=>{const sources=[{id:'a',on:true},{id:'b',on:true},{id:'c',on:false}];assert.deepEqual(scopedSources(sources,'b').map(s=>s.id),['b']);assert.equal(scopedSources(sources,'b',true).length,2);assert.equal(scopedSources(sources,'c').length,0)});
+test('citation chips contain only cited sources and group excerpts from the same source',()=>{const result={answer:'Facts [1] and [3].',evidence:[{citation:1,sourceId:'a',text:'first'},{citation:2,sourceId:'b',text:'irrelevant'},{citation:3,sourceId:'a',text:'third'}]};const groups=citedSources(result);assert.equal(groups.length,1);assert.deepEqual(groups[0].citations,[1,3]);assert.equal(groups[0].text,'first\n\nthird')});

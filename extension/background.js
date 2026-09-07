@@ -1,3 +1,4 @@
+import {editorAssist} from './editor-assist.js';
 import {extractPage} from './extract.js';
 const allowed=new Set(['http://localhost:5173','http://127.0.0.1:5173','http://localhost:4173','http://127.0.0.1:4173']);
 const validApp=sender=>{try{return sender.id===chrome.runtime.id&&sender.frameId===0&&allowed.has(new URL(sender.url).origin)}catch{return false}};
@@ -14,6 +15,13 @@ async function command(message,sender){
  if(action==='tabs'){
    const tabs=await chrome.tabs.query({});
    return {tabs:tabs.filter(t=>/^https?:/.test(t.url||'')&&!allowed.has(new URL(t.url).origin)).map(({id,windowId,title,url})=>({id,windowId,title,url}))};
+ }
+ if(action==='editor-assist'){
+   if(payload.mode!=='stop')throw Error('Editor suggestions have been removed. Use Copy code in ContextFlow.');
+   if(typeof payload.code!=='string'||payload.code.length>100000)throw Error('Choose a code block under 100,000 characters.');
+   await validate([payload.tab]);if(allowed.has(new URL(payload.tab.url).origin))throw Error('Choose a source tab.');
+   if((await missingOrigins([payload.tab])).length)throw Error('Enable extension access for the selected site.');
+   const [{result}]=await chrome.scripting.executeScript({target:{tabId:payload.tab.id},world:'ISOLATED',func:editorAssist,args:[{code:payload.code,url:payload.tab.url,mode:payload.mode}]});return result;
  }
  if(action==='capture'){
    await validate(payload.tabs);
