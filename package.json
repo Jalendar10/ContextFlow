@@ -1,0 +1,27 @@
+{
+  "name": "contextflow-ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run package:extension && vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.mjs",
+    "package:extension": "node scripts/package-extension.mjs",
+    "start": "node server/start.mjs",
+    "build:native": "node scripts/build-native.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "undici": "^8.10.2",
+    "vite": "^6.1.0",
+    "jsdom": "^30.0.1"
+  },
+  "devDependencies": {},
+  "license": "MIT"
+}

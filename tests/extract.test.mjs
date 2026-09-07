@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {JSDOM} from 'jsdom';
+import {extractPage} from '../extension/extract.js';
+test('formats headings, complete table rows, code, links and shadow content without modifying the page',()=>{
+ const dom=new JSDOM('<!doctype html><title>Requirements</title><body><h1>Ingestion requirements</h1><p>Pipeline available in five minutes</p><table><tr><th>Field</th><th>Value</th></tr><tr><td>Retention</td><td>90 days</td></tr></table><pre>SELECT * FROM records;</pre><a href="/details">Details</a><div id="component"></div><script>secret_internal_script</script><input type="password" value="not_page_content"><canvas></canvas></body>',{url:'https://example.com/requirements',runScripts:'outside-only'});
+ const root=dom.window.document.querySelector('#component').attachShadow({mode:'open'});root.innerHTML='<p>Shadow SLA: five minutes</p>';const before=dom.window.document.documentElement.outerHTML;
+ const extracted=dom.window.eval('('+extractPage.toString()+')()');
+ assert.match(extracted.text,/# Ingestion requirements/);assert.match(extracted.text,/\| Retention \| 90 days \|/);assert.match(extracted.text,/```\nSELECT/);assert.match(extracted.text,/https:\/\/example.com\/details/);assert.match(extracted.text,/Shadow SLA/);assert.doesNotMatch(extracted.text,/secret_internal_script|not_page_content/);assert.equal(dom.window.document.documentElement.outerHTML,before);assert.equal(extracted.stats.tables,1);assert.equal(extracted.stats.headings,1);assert.ok(extracted.warnings.some(w=>w.includes('Canvas')));dom.window.close();
+});
+test('does not fabricate content for empty pages',()=>{const dom=new JSDOM('<title>Title only</title><body></body>',{url:'https://example.com',runScripts:'outside-only'});assert.throws(()=>dom.window.eval('('+extractPage.toString()+')()'),/no readable/);dom.window.close();});
+test('captures current textarea values and rendered editor indentation without scripts, events or console output',()=>{
+ const dom=new JSDOM('<body><textarea id="code">old code</textarea><textarea hidden>hidden secret</textarea><textarea autocomplete="current-password">secret</textarea><div class="monaco-editor"><div class="view-lines"><div class="view-line">def solve():</div><div class="view-line">    return 42</div></div><textarea aria-hidden="true">helper buffer</textarea></div></body>',{url:'https://example.com/editor',runScripts:'outside-only'});
+ const doc=dom.window.document;doc.querySelector('#code').value='if ready:\n    print("``` stays intact")';const before=doc.documentElement.outerHTML;let events=0,logs=0;doc.addEventListener('input',()=>events++);doc.addEventListener('change',()=>events++);for(const level of ['log','warn','error','info','debug'])dom.window.console[level]=()=>logs++;
+ Object.defineProperty(dom.window,'monaco',{get(){throw Error('Private editor API must not be accessed')}});
+ const result=dom.window.eval('('+extractPage.toString()+')()');assert.match(result.text,/if ready:\n    print\("``` stays intact"\)/);assert.match(result.text,/def solve\(\):\n    return 42/);assert.doesNotMatch(result.text,/hidden secret|helper buffer|old code|\nsecret/);assert.ok(result.warnings.some(w=>w.includes('protected editor')));assert.equal(doc.documentElement.outerHTML,before);assert.equal(doc.querySelector('#code').value,'if ready:\n    print("``` stays intact")');assert.equal(events,0);assert.equal(logs,0);dom.window.close();
+});
