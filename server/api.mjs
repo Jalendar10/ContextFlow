@@ -1,3 +1,6 @@
+import pathModule from 'node:path';
+import {Workspaces} from './workspaces.mjs';
+import {ProviderConfig} from './provider-config.mjs';
 import {AgentProfiles} from './agents.mjs';
 import fs from 'node:fs';
 import {meetingContext} from './meeting-context.mjs';
@@ -7,10 +10,10 @@ import {Desktop} from './desktop.mjs';
 import {ContextStore,answerQuestion} from './context-store.mjs';
 import {ProviderAI} from './providers.mjs';
 import {capturePublicPage} from './public-page.mjs';
-export function createApi({store=new ContextStore(),ai=new ProviderAI(),publicCapture=capturePublicPage,desktop,meeting}={}){
+function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),publicCapture=capturePublicPage,desktop,meeting,workspaceDirectory,registry,workspaceId}={}){
  desktop ||= new Desktop({ai,store});
- const history=new MeetingHistory();
- const agents=new AgentProfiles(ai);
+ const history=new MeetingHistory(workspaceDirectory?pathModule.join(workspaceDirectory,'meetings'):undefined);
+ const agents=new AgentProfiles(ai,workspaceDirectory?new ProviderConfig({directory:workspaceDirectory}):ai.config);
  meeting ||= new LiveMeeting({ai,store,desktop,history,agents});
  const localOrigins=new Set(['http://localhost:5173','http://127.0.0.1:5173','http://localhost:4173','http://127.0.0.1:4173']);
  return async function api(req,res,next){
@@ -25,6 +28,7 @@ export function createApi({store=new ContextStore(),ai=new ProviderAI(),publicCa
   const controller=new AbortController();res.on('close',()=>{if(!res.writableEnded)controller.abort()});
   try{
    const parsed=new URL(req.url,'http://localhost'),path=parsed.pathname;
+   if(path==='/api/workspaces'&&req.method==='GET')return reply(200,{workspaces:registry.list(),current:workspaceId});
    if(/^\/api\/meetings\/[^/]+\/recording$/.test(path)&&req.method==='GET'){
     const id=path.split('/')[3],file=history.recordingFile(id);if(!fs.existsSync(file))return reply(404,{error:'No recording exists for this meeting.'});
     const size=fs.statSync(file).size;let start=0,end=size-1;const range=req.headers.range;
@@ -71,6 +75,7 @@ export function createApi({store=new ContextStore(),ai=new ProviderAI(),publicCa
    const parts=[];let bytes=0;
    for await(const chunk of req){bytes+=chunk.length;if(bytes>12*1024*1024){reply(413,{error:'Capture request is too large. Nothing was stored.'});return;}parts.push(chunk);}
    const body=JSON.parse(Buffer.concat(parts).toString());
+   if(path==='/api/workspaces'&&req.method==='POST')return reply(201,registry.create(body.name));
    if(path==='/api/live'&&req.method==='POST')return reply(200,await meeting.start(body));
    if(path==='/api/live/stop'&&req.method==='POST')return reply(200,await meeting.stop(body.id));
    if(path==='/api/live/respond'&&req.method==='POST')return reply(200,meeting.respondToTurn(body.id,body.turnId));
@@ -93,8 +98,45 @@ export function createApi({store=new ContextStore(),ai=new ProviderAI(),publicCa
    }
    if(path==='/api/selection'&&req.method==='PUT'){store.select(body.ids);return reply(200,{sources:store.list()});}
    if(path==='/api/ai'&&req.method==='PUT')return reply(200,await ai.setModel(body.model));
+   if(path==='/api/answer-stream'&&req.method==='POST'){
+    res.writeHead(200,{'Content-Type':'application/x-ndjson','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+    const send=value=>{if(!res.destroyed&&!res.writableEnded)res.write(JSON.stringify(value)+'\n');};
+    try{const result=await answerQuestion(store,body,{ai,signal:controller.signal,onDelta:delta=>send({delta})});send({result});}
+    catch(error){send({error:error.message});}
+    res.end();return;
+   }
    if(path==='/api/answer'&&req.method==='POST')return reply(200,await answerQuestion(store,body,{ai,signal:controller.signal}));
    reply(404,{error:'Unknown endpoint.'});
   }catch(error){reply(400,{error:error instanceof SyntaxError?'Invalid JSON.':error.message});}
+ };
+}
+
+
+export function createApi(options={}){
+ const ai=options.ai||new ProviderAI();
+ if(!ai.config)return createWorkspaceApi(options);
+ const registry=new Workspaces(ai.config.directory);
+ const handlers=new Map();
+ return (req,res,next)=>{
+  if(!req.url.startsWith('/api/'))return next?.();
+  let id='default';
+  try{
+   const referer=new URL(req.headers.referer||'http://localhost');
+   id=new URL(req.url,'http://localhost').searchParams.get('workspace')||referer.searchParams.get('workspace')||'default';
+   registry.get(id);
+   if(!handlers.has(id)){
+    const directory=registry.folder(id),store=id==='default'?(options.store||new ContextStore()):new ContextStore();
+    const file=pathModule.join(directory,'sources.json');
+    if(!store.sources.size&&fs.existsSync(file))for(const source of JSON.parse(fs.readFileSync(file,'utf8')))store.sources.set(source.id,source);
+    const handler=createWorkspaceApi({...options,ai,store,desktop:id==='default'?options.desktop:undefined,meeting:id==='default'?options.meeting:undefined,workspaceDirectory:directory,registry,workspaceId:id});
+    handlers.set(id,{handler,store,file,directory});
+    if(id==='default'&&options.store?.sources.size){fs.mkdirSync(directory,{recursive:true,mode:0o700});fs.writeFileSync(file+'.tmp',JSON.stringify([...store.sources.values()]),{mode:0o600});fs.renameSync(file+'.tmp',file);}
+   }
+   const entry=handlers.get(id);
+   if(req.method!=='GET'&&/^\/api\/(?:sources(?:\/|$)|capture|desktop\/capture|live\/stop)/.test(new URL(req.url,'http://localhost').pathname))res.once('finish',()=>{
+    try{fs.mkdirSync(entry.directory,{recursive:true,mode:0o700});fs.writeFileSync(entry.file+'.tmp',JSON.stringify([...entry.store.sources.values()]),{mode:0o600});fs.renameSync(entry.file+'.tmp',entry.file);}catch{}
+   });
+   return entry.handler(req,res,next);
+  }catch{res.writeHead(404,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Workspace unavailable.'}));}
  };
 }

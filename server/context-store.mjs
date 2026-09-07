@@ -1,3 +1,5 @@
+import {normalizeCleanup} from '../formatted-content.js';
+import {sourcePrefix,wordCount} from '../source-word-budget.js';
 import {createHash,randomUUID} from 'node:crypto';
 const MAX_BYTES=8*1024*1024;
 const stop=new Set(['the','what','why','how','are','was','this','that','with','from','does','can','for','and','about','our','its','you','use','tell','please','would','could','should']);
@@ -52,14 +54,20 @@ export class ContextStore {
   return chosen.map((c,i)=>({...c,citation:i+1,totalChunks:all.length}));
  }
 }
-export async function answerQuestion(store,body,{ai,signal}={}){
+export async function answerQuestion(store,body,{ai,signal,onDelta}={}){
  if(typeof body.question!=='string'||!body.question.trim()||body.question.length>12000)throw Error('Enter a question of 1–12,000 characters.');
+ const cleanup=normalizeCleanup(body.cleanup);
+ const wordLimit=body.wordLimit??1000;
+ if(!Number.isInteger(wordLimit)||wordLimit<1||wordLimit>100000)throw Error('Enter a word limit from 1 to 100,000.');
  const history=Array.isArray(body.history)?body.history:[];
  const retrievalQuestion=body.question+' '+history.filter(h=>h.role==='user').slice(-2).map(h=>String(h.content).slice(0,2000)).join(' ');
- const evidence=store.retrieve(retrievalQuestion,body.sourceIds);
+ // Prefix mode does not need to rank every chunk of the full document.
+ if(!Array.isArray(body.sourceIds)||!body.sourceIds.length||body.sourceIds.length>20||body.sourceIds.some(id=>!store.sources.get(id)?.on))throw Error('Select 1–20 available sources.');
+ const evidence=body.sourceIds.map((id,i)=>{const s=store.sources.get(id);return {sourceId:id,title:s.name,url:s.url,capturedAt:s.capturedAt,revision:s.revision,citation:i+1,text:sourcePrefix(s.text,wordLimit,cleanup),totalChunks:1};});
+ if(!evidence.some(e=>e.text.trim()))throw Error('No readable content remains in the selected sources.');
  const versions=body.sourceIds.map(id=>store.sources.get(id).hash);
  if(!ai)throw Error('No AI provider is connected. Start Ollama and choose a model.');
- const generated=await ai.generate({question:body.question,evidence,history,signal});
+ const generated=await ai.generate({question:body.question,evidence,history,signal,onDelta,latencySensitive:true});
  if(body.sourceIds.some((id,i)=>!store.sources.get(id)?.on||store.sources.get(id).hash!==versions[i]))throw Error('Sources changed while generating the answer. Ask again against the current captures.');
- return {...generated,evidence,createdAt:new Date().toISOString(),usedCharacters:evidence.reduce((n,e)=>n+e.text.length,0),mode:'ai'};
+ return {...generated,evidence,wordLimit,cleanup,usedWords:evidence.reduce((n,e)=>n+wordCount(e.text),0),createdAt:new Date().toISOString(),usedCharacters:evidence.reduce((n,e)=>n+e.text.length,0),mode:'ai'};
 }

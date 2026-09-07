@@ -19,6 +19,8 @@ test('Realtime config streams PCM and forwards partials before final text',async
  const {stream,text}=setup();await stream.ready;
  assert.equal(stream.socket.sent[0].session.audio.input.transcription.model,'gpt-live-transcribe');
  assert.equal(stream.socket.sent[0].session.audio.input.turn_detection,null);
+ assert.deepEqual(stream.socket.sent[0].session.audio.input.transcription.languages,['en']);
+ assert.equal(stream.socket.sent[0].session.audio.input.transcription.language,undefined);
  stream.write(Buffer.alloc(9600));
  assert.equal(stream.socket.sent[1].type,'input_audio_buffer.append');
  stream.event({type:'conversation.item.input_audio_transcription.delta',item_id:'a',delta:'Hello'});

@@ -20,6 +20,10 @@ For example, you can capture a technical problem, ask for Python or SQL code, an
 | Meeting history | Revisit saved transcripts and answers, play recordings, and download them. |
 | Usage & costs | Inspect requests by model, tokens when reported, duration, and estimated cost. |
 
+## Multiple workspaces
+
+Use the Workspace menu in the sidebar to create and switch between named workspaces. Sources, agents, and meeting history are separate. API keys, model defaults, and usage totals are shared. Research conversations are saved per workspace in this browser. Finish active recording or processing before switching. Sources are saved locally after capture and source changes, and meeting transcripts are saved when stopped. Existing content belongs to My workspace.
+
 ## How the workspace works
 
 ### Research a source
@@ -119,7 +123,7 @@ Custom endpoints need the relevant OpenAI-compatible API routes, such as `/model
 - Cloud answer models receive the context supplied for the request. Cloud transcription providers receive captured or uploaded audio. Provider charges may apply.
 - Keys stay in backend memory unless **Remember on this computer** is enabled. Remembered keys are stored in a plaintext file with owner-only permissions, not encrypted.
 - Settings, agents, meeting history, recordings, and usage records live under `.contextflow/`. This directory and environment files are excluded from Git.
-- Captured research sources are primarily held in backend memory; export important material before restarting. Research conversation state is not the same as persistent meeting history.
+- Captured research sources are saved locally per workspace. Research conversations are stored in this browser separately from server-side meeting history.
 - Browser and OS permission prompts and capture indicators remain visible. ContextFlow cannot remove them.
 - Page capture reads accessible, loaded content. It does not bypass authentication, editor protection, or browser restrictions. Virtualized tables/editors, closed shadow roots, canvas, and some frames may expose incomplete content.
 - Desktop OCR reads visible content, not offscreen or unloaded material.
