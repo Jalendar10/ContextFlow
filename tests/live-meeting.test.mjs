@@ -64,3 +64,16 @@ test('clear questions bypass a blocked detector and two answers can start togeth
   assert.ok(s.questions.every(q=>q.status==='complete'));
  }finally{releaseDetector();releases.forEach(r=>r());h.meeting.discard()}
 });
+test('live speed preference only changes supported GPT-5.5 reasoning requests',async()=>{
+ const directory=mkdtempSync(path.join(os.tmpdir(),'cf-fast-'));
+ try{
+  const config=new ProviderConfig({directory,env:{}});config.setKey('openai','fixture-key');
+  const bodies=[];
+  const ai=new ProviderAI({config,fetcher:async(url,options)=>{bodies.push(JSON.parse(options.body));return {ok:true,json:async()=>({output:[{content:[{type:'output_text',text:'Answer'}]}]})}}});
+  for(const [model,latencySensitive] of [['gpt-5.5',true],['gpt-5.5',false],['gpt-5.5-pro',true]]){
+   await ai.generateOnce({selection:{provider:'openai',model},question:'q',evidence:[],latencySensitive});
+  }
+  assert.deepEqual(bodies[0].reasoning,{effort:'none'});
+  assert.equal(bodies[1].reasoning,undefined);assert.equal(bodies[2].reasoning,undefined);
+ }finally{rmSync(directory,{recursive:true,force:true})}
+});
