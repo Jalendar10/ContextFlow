@@ -14,7 +14,7 @@ test('model roles persist independently; keys stay session-only unless remembere
   f.config.select('answer','anthropic','claude-test');f.config.select('transcription','groq','whisper-large-v3');f.config.setKey('anthropic','fixture-session-key');
   const restarted=new ProviderConfig({directory:f.directory,env:{}});assert.deepEqual(restarted.settings.answer,{provider:'anthropic',model:'claude-test'});assert.deepEqual(restarted.settings.transcription,{provider:'groq',model:'whisper-large-v3'});assert.equal(restarted.key('anthropic'),'');
   f.config.setKey('groq','fixture-persisted-key',true);assert.equal(new ProviderConfig({directory:f.directory,env:{}}).key('groq'),'fixture-persisted-key');
-  assert.equal(fs.statSync(path.join(f.directory,'credentials.json')).mode&0o777,0o600);assert.equal(fs.statSync(f.directory).mode&0o777,0o700);
+  if(process.platform!=='win32')assert.equal(fs.statSync(path.join(f.directory,'credentials.json')).mode&0o777,0o600);if(process.platform!=='win32')assert.equal(fs.statSync(f.directory).mode&0o777,0o700);
   const exposed=JSON.stringify(f.config.public());assert.ok(!exposed.includes('fixture-session-key'));assert.ok(!exposed.includes('fixture-persisted-key'));
   f.config.removeKey('groq');assert.equal(new ProviderConfig({directory:f.directory,env:{}}).key('groq'),'');
  }finally{f.cleanup()}

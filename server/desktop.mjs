@@ -36,7 +36,7 @@ export class Desktop {
   child.stderr.resume();
   child.stdin.on('error',()=>{});
   child.on('error',()=>{s.error='Could not start the desktop helper.';s.active=false;s.starting=false;});
-  child.on('close',code=>{s.active=false;s.starting=false;s.stopping=false;clearTimeout(s.stopTimer);clearTimeout(s.limitTimer);if(code&&!s.error)s.error='Audio capture stopped unexpectedly. Check app audio permissions.';s.chain.finally(()=>rm(directory,{recursive:true,force:true}));});
+  child.once('close',code=>{s.active=false;s.starting=false;s.stopping=false;clearTimeout(s.stopTimer);clearTimeout(s.limitTimer);if(code&&!s.error)s.error='Audio capture stopped unexpectedly. Check app audio permissions.';s.cleanup=s.chain.then(()=>rm(directory,{recursive:true,force:true,maxRetries:5,retryDelay:100})).catch(()=>{s.error='Temporary audio cleanup failed. Close other programs using the recording folder and try again.';});});
   // No indefinite unattended recording: a visible session ends after two hours or a backend restart.
   s.limitTimer=setTimeout(()=>{s.error='The two-hour listening session ended. Start a new session to continue.';this.stop();},2*60*60*1000);s.limitTimer.unref();
   return this.view();
