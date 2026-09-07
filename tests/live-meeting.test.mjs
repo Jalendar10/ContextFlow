@@ -45,3 +45,22 @@ test('Deepgram catalog reports only supported batch/streaming STT models and use
 });
 test('meeting answers include both reference sections, attached text and editable prompt',async()=>{const h=harness();await h.meeting.start({kind:'tab',context:{content:'Project goals',additionalContent:'Budget facts',files:[{name:'notes.txt',text:'Delivery Friday'}],prompt:'Answer in two sentences.'}});h.meeting.manual(h.meeting.view().id,'When is delivery?');await h.meeting.session.answerChain;const call=h.calls.find(c=>c.onDelta);const payload=JSON.parse(call.question);assert.equal(payload.referenceContent.content,'Project goals');assert.equal(payload.referenceContent.additionalContent,'Budget facts');assert.equal(payload.referenceContent.files[0].text,'Delivery Friday');assert.match(call.system,/Answer in two sentences/);await h.meeting.stop(h.meeting.view().id);});
 test('manual transcript response handles statements and uses the selected turn',async()=>{const h=harness();await h.meeting.start({kind:'tab',autoAnswer:false});h.meeting.transcript(h.meeting.session,{track:'meeting',final:true,text:'The deployment is delayed.',boundary:true});const turn=h.meeting.session.turns[0];h.meeting.respondToTurn(h.meeting.session.id,turn.id);await h.meeting.session.answerChain;assert.equal(h.meeting.session.questions[0].text,'The deployment is delayed.');assert.equal(h.meeting.session.questions[0].turnId,turn.id);assert.equal(h.meeting.session.questions[0].status,'complete');assert.throws(()=>h.meeting.respondToTurn(h.meeting.session.id,'missing'),/not found/);await h.meeting.stop(h.meeting.session.id)});
+test('clear questions bypass a blocked detector and two answers can start together',async()=>{
+ const h=harness();await h.meeting.start({kind:'tab'});const s=h.meeting.session;
+ const releases=[];
+ h.meeting.ai.generate=async args=>{await new Promise(r=>releases.push(r));return {answer:'Answer',model:'test'}};
+ let releaseDetector;s.detectionChain=new Promise(r=>releaseDetector=r);
+ try{
+  for(const text of ['What is SQL?','How do joins work?','Why use indexes?']){
+   h.meeting.transcript(s,{track:'meeting',text,final:true,boundary:true});
+  }
+  await new Promise(r=>setImmediate(r));
+  assert.equal(s.questions.length,3);
+  assert.equal(releases.length,2);
+  releases.shift()();await new Promise(r=>setImmediate(r));
+  assert.equal(releases.length,2);
+  releases.splice(0).forEach(r=>r());releaseDetector();
+  await s.answerChain;
+  assert.ok(s.questions.every(q=>q.status==='complete'));
+ }finally{releaseDetector();releases.forEach(r=>r());h.meeting.discard()}
+});

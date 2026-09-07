@@ -18,6 +18,7 @@ function setup(){
 test('Realtime config streams PCM and forwards partials before final text',async()=>{
  const {stream,text}=setup();await stream.ready;
  assert.equal(stream.socket.sent[0].session.audio.input.transcription.model,'gpt-live-transcribe');
+ assert.equal(stream.socket.sent[0].session.audio.input.turn_detection,null);
  stream.write(Buffer.alloc(9600));
  assert.equal(stream.socket.sent[1].type,'input_audio_buffer.append');
  stream.event({type:'conversation.item.input_audio_transcription.delta',item_id:'a',delta:'Hello'});
@@ -41,4 +42,12 @@ test('Stop waits for the final commit acknowledgement and transcription',async()
  await Promise.resolve();assert.equal(done,false);
  stream.event({type:'conversation.item.input_audio_transcription.completed',item_id:'last',transcript:'Last words'});
  await finishing;assert.equal(text[0].text,'Last words');assert.equal(stream.closed,true);
+});
+
+test('Live model commits after speech and silence while continuously uploading audio',()=>{
+ const {stream}=setup();const speech=Buffer.alloc(9600);for(let i=0;i<speech.length;i+=2)speech.writeInt16LE(2000,i);
+ stream.write(speech);for(let i=0;i<3;i++)stream.write(Buffer.alloc(9600));
+ assert.equal(stream.socket.sent.filter(e=>e.type==='input_audio_buffer.append').length,4);
+ assert.equal(stream.socket.sent.at(-1).type,'input_audio_buffer.commit');
+ stream.abort();
 });

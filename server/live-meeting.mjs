@@ -58,12 +58,14 @@ export class LiveMeeting {
   if(event.boundary||s.mode==='short-segments')this.boundary(s,track);this.publish();
  }
  boundary(s,track){const text=s.utterances[track]?.trim();if(!text)return;delete s.utterances[track];if(!s.autoAnswer||(s.detectionTrack&&s.detectionTrack!=='all'&&track!==s.detectionTrack))return;
+  // Clear questions do not need to wait behind model-based classification.
+  const explicit=/^(?:who|what|when|where|why|how|can|could|would|will|do|does|did|is|are|should)\b[^?]{3,}\?$/i.test(text);
+  if(explicit){this.question(s,text,track);return;}
   if(s.queuedDetections>=3){s.error='Question detection is behind. Choose a faster answer model.';this.publish();return;}
   s.queuedDetections=(s.queuedDetections||0)+1;
   const context=s.turns.slice(-8).map(t=>`${t.speaker}: ${t.text}`).join('\n');
   s.detectionChain=s.detectionChain.then(async()=>{if(s.controller.signal.aborted)return;s.detecting=true;this.publish();try{
-   const explicit=/^(?:who|what|when|where|why|how|can|could|would|will|do|does|did|is|are|should)\b[^?]{3,}\?$/i.test(text)?text:null;
-   const result=explicit?{answer:JSON.stringify({question:explicit})}:await this.ai.generate({question:JSON.stringify({earlierTurns:context,latestTurn:text}),evidence:[],system:DETECT,maxTokens:200,selection:s.answerSelection,signal:s.controller.signal});
+   const result=await this.ai.generate({question:JSON.stringify({earlierTurns:context,latestTurn:text}),evidence:[],system:DETECT,maxTokens:200,selection:s.answerSelection,signal:s.controller.signal});
    const question=parseQuestion(result.answer);if(question)await this.question(s,question,track);
   }catch(e){if(!s.controller.signal.aborted)s.error='Question detection: '+e.message;}finally{s.detecting=false;s.queuedDetections--;this.publish();}});
  }
@@ -71,12 +73,18 @@ export class LiveMeeting {
   if(!['manual','transcript'].includes(track)&&s.questions.some(q=>Date.now()-q.detectedAt<120000&&sameQuestion(q.text,text)))return;
   const key=text.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();if(!['manual','transcript'].includes(track)&&Date.now()-(s.seen.get(key)||0)<30000)return;s.seen.set(key,Date.now());
   const q={id:randomUUID(),text,track,turnId,status:'queued',answer:'',detectedAt:Date.now(),firstTokenMs:null,totalMs:null,evidence:[]};s.questions.push(q);this.publish();
-  s.answerChain=s.answerChain.then(async()=>{if(s.controller.signal.aborted)return;q.status='answering';this.publish();const start=Date.now();
+  // Two bounded lanes keep a short new question from waiting for a long answer.
+  s.answerLanes ||= [Promise.resolve(),Promise.resolve()];
+  s.answerLaneCounts ||= [0,0];
+  const lane=s.answerLaneCounts[0]<=s.answerLaneCounts[1]?0:1;
+  s.answerLaneCounts[lane]++;
+  s.answerLanes[lane]=s.answerLanes[lane].then(async()=>{if(s.controller.signal.aborted)return;q.status='answering';this.publish();const start=Date.now();
    try{const ids=s.sourceIds.filter(id=>this.store.sources.get(id)?.on);const evidence=ids.length?this.store.retrieve(text,ids).slice(0,4):[];q.evidence=evidence.map(e=>({citation:e.citation,title:e.title,url:e.url,text:e.text}));
     const context=s.turns.filter(t=>s.detectionTrack==='all'||!s.detectionTrack||t.track===s.detectionTrack).slice(-80).map(t=>`${t.speaker}: ${t.text}`).join('\n').slice(-24000);
     const result=await this.ai.generate({question:JSON.stringify({question:text,meetingContext:context,referenceContent:s.context}),evidence,system:ANSWER+(s.responseStyle==='interview'?'\nInterview mode: use the preceding scenario, not just the last fragment. Start with a direct interview-ready answer, explain the approach step by step, then end with a concrete example grounded in the scenario. Use supplied column names exactly; never invent a schema or SQL dialect. State missing details and use labeled assumptions when needed. Do not claim personal experience.':'\nMeeting mode: answer the speaker directly using the preceding discussion. For a technical request include solution steps, working SQL or code and a short example; for other remarks provide a natural relevant reply.')+(s.agent?.skills?'\nUser-selected agent skills:\n'+s.agent.skills:'')+(s.context?.prompt?"\nUser answer preferences (apply when consistent with the task):\n"+s.context.prompt:""),maxTokens:1400,selection:s.answerSelection,signal:s.controller.signal,onDelta:delta=>{if(s.controller.signal.aborted)return;if(q.firstTokenMs===null)q.firstTokenMs=Date.now()-q.detectedAt;q.answer+=delta;this.publish();}});
     if(ids.some(id=>!this.store.sources.get(id)?.on))throw Error('A context source was removed during the answer.');q.answer=result.answer;q.model=result.model;q.provider=result.provider;q.fallbackFrom=result.fallbackFrom;q.status='complete';q.totalMs=Date.now()-start;
-   }catch(e){q.status='error';q.error=e.message;}this.publish();});
+   }catch(e){q.status='error';q.error=e.message;}this.publish();}).finally(()=>{s.answerLaneCounts[lane]--;});
+  s.answerChain=Promise.all(s.answerLanes);
  }
  respondToTurn(id,turnId){const s=this.session;if(!s||s.id!==id||s.controller.signal.aborted)throw Error('This meeting is unavailable.');const turn=s.turns.find(t=>t.id===turnId);if(!turn)throw Error('Transcript entry not found.');if(s.questions.some(q=>q.turnId===turnId&&['queued','answering'].includes(q.status)))return this.view();const paragraph=transcriptParagraphs(s.turns,s.detectionTrack||'all').find(t=>t.id===turnId);this.question(s,paragraph?.text||turn.text,'transcript',turnId);return this.view();}
  manual(id,text){const s=this.session;if(!s||s.id!==id||typeof text!=='string'||text.trim().length<4||text.length>2000)throw Error('Enter a question for this session.');this.question(s,text.trim());return this.view();}
