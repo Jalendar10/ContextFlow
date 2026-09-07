@@ -9,3 +9,7 @@ dist/
 .contextflow/
 
 *.log
+
+# Native build intermediates (helpers remain local)
+native/**/obj/
+native/**/bin/

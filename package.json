@@ -13,6 +13,7 @@
     "build:native": "node scripts/build-native.mjs"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "jsdom": "^30.0.1",
     "lucide-react": "^0.468.0",
     "mammoth": "^1.12.2",

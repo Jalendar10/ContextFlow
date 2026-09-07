@@ -1,3 +1,4 @@
+import {platformInfo} from './platform.mjs';
 import {MeetingPresets} from './meeting-presets.mjs';
 import {extractDocument} from './document-text.mjs';
 import pathModule from 'node:path';
@@ -31,6 +32,7 @@ function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),public
   const controller=new AbortController();res.on('close',()=>{if(!res.writableEnded)controller.abort()});
   try{
    const parsed=new URL(req.url,'http://localhost'),path=parsed.pathname;
+   if(path==='/api/platform'&&req.method==='GET')return reply(200,platformInfo());
    if(path==='/api/workspaces'&&req.method==='GET')return reply(200,{workspaces:registry.list(),current:workspaceId});
    if(/^\/api\/meetings\/[^/]+\/recording$/.test(path)&&req.method==='GET'){
     const id=path.split('/')[3],file=history.recordingFile(id);if(!fs.existsSync(file))return reply(404,{error:'No recording exists for this meeting.'});

@@ -1,0 +1,29 @@
+name: macOS and Windows
+on: [push, pull_request]
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Check Windows app enumeration
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: powershell.exe -NoProfile -NonInteractive -File native/windows-apps.ps1 -Action status
+      - uses: actions/setup-dotnet@v4
+        if: runner.os == 'Windows'
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build Windows app audio helper
+        if: runner.os == 'Windows'
+        run: npm run build:native

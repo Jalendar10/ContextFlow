@@ -13,7 +13,7 @@ For example, you can capture a technical problem, ask for Python or SQL code, an
 | Research workspace | Read captured content and ask questions with source citations. |
 | Browser tab capture | Capture readable content from a selected, already-open tab, including signed-in pages. |
 | Public webpages | Fetch a public URL or add a linked page as another source. |
-| Desktop app capture | Read accessible app text on macOS, with visible-window OCR when necessary. |
+| Desktop app capture | Read accessible app text on macOS or Windows. macOS also provides visible-window OCR. |
 | Live transcript | Transcribe a selected tab, app, microphone, or app/tab audio plus your microphone. |
 | Meeting and interview responses | Request a direct answer, explanation, steps, SQL/code, and an example where appropriate. |
 | Agents & skills | Save a model, instructions, reference content, files, and skills as a reusable assistant. |
@@ -44,7 +44,7 @@ The source and answer panels have a draggable divider. Captured content and answ
 Open **Meeting**, expand **Audio source, agent & meeting settings**, and choose your audio source and agent.
 
 - **Selected browser tab:** select a tab in the browser's capture picker and enable **Share tab audio**.
-- **Selected desktop app:** capture audio from a running macOS application. Selecting a browser app includes its audible tabs.
+- **Selected desktop app:** capture audio from a running macOS or Windows application using its local helper. Selecting a browser app includes its audible tabs.
 - **Microphone:** use microphone audio alone, or include it alongside tab/app audio.
 
 The transcript and agent responses fill the meeting window. Drag the middle divider to change their widths; each column scrolls independently.
@@ -142,7 +142,12 @@ Custom endpoints need the relevant OpenAI-compatible API routes, such as `/model
 - **Node.js 24.15+** (24.x), **22.22.2+** (22.x), or **26+**, and npm, matching the installed dependencies.
 - **Chrome or Edge** for the browser extension and tab audio workflow.
 - A supported provider API key, or a running Ollama instance for local answers.
-- Optional desktop capture: **macOS 15+** and Xcode Command Line Tools.
+- **macOS or Windows**: OS detection selects available desktop and audio options automatically.
+- Optional macOS app capture: **macOS 15+** and Xcode Command Line Tools.
+- Windows app text uses built-in Windows PowerShell and UI Automation; no Swift or native build is needed. Custom, minimized or protected controls may not expose text.
+- Windows isolated app audio: install the **.NET 10 SDK**, run `npm run build:native`, then choose **Selected desktop app** and select Teams, Zoom or another running app. Requires Windows build **20348+** (including Windows 11). The helper captures the selected process and its children; audio rendered outside that process tree may require a different app selection.
+- Windows system-audio fallback: choose **System audio · Windows** in Chrome/Edge, select Entire screen, and enable system audio. This can include all applications; it is not isolated per app. If the browser offers no audio track, use the meeting’s browser tab instead.
+- Browser tabs, microphone, agents, uploads, history and saved setups use the same application on both platforms.
 
 ### 2. Clone and install
 
@@ -224,3 +229,5 @@ npm run build
 - **Streaming model unsupported:** choose a supported model in your account or switch to Batch.
 - **Provider error:** check the selected model, key permissions, credit balance, and context size.
 - **Changes not visible:** rebuild for `npm start`, then refresh the page after stopping any active recording. Restart the server for backend changes.
+
+Windows app-audio helper builds are checked in CI. A successful build does not verify real audio devices or Teams/Zoom capture; test these on the target Windows machine. The helper uses NAudio (MIT license) and is built locally under `.contextflow/windows-audio`.

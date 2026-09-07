@@ -1,0 +1,1 @@
+export function platformInfo(platform=process.platform){return {os:platform,name:platform==='darwin'?'macOS':platform==='win32'?'Windows':'Linux / other',nativeAppAudio:platform==='darwin'||platform==='win32',systemAudio:platform==='win32',shortcut:platform==='darwin'?'⌘':'Ctrl'};}

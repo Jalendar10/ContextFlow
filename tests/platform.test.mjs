@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {platformInfo} from '../server/platform.mjs';
+import {Desktop} from '../server/desktop.mjs';
+import {ContextStore} from '../server/context-store.mjs';
+test('macOS and Windows expose appropriate audio capabilities',()=>{assert.equal(platformInfo('darwin').nativeAppAudio,true);assert.equal(platformInfo('win32').nativeAppAudio,true);assert.equal(platformInfo('win32').systemAudio,true);assert.equal(platformInfo('win32').shortcut,'Ctrl');assert.equal(platformInfo('darwin').shortcut,'⌘');});
+test('Windows app capture invokes PowerShell with argument values and stores accessible text',async()=>{const calls=[];const app={pid:123,bundleId:'notepad',name:'Notes'};const desktop=new Desktop({platform:'win32',binary:'/missing/helper',store:new ContextStore(),run:async(file,args)=>{calls.push({file,args});return {stdout:JSON.stringify(args.includes('status')?{available:true,apps:[app]}:{title:'Notes',text:'Visible document content'})};}});assert.equal((await desktop.status()).platformName,'Windows');const source=await desktop.capture(app);assert.equal(desktop.store.detail(source.id).text,'Visible document content');assert.equal(calls[1].file,'powershell.exe');assert.ok(calls[1].args.includes('123'));await assert.rejects(desktop.start(app),/build:native/);await assert.rejects(desktop.permission('audio'),/do not apply/);});

@@ -6,7 +6,7 @@ export class MeetingPresets{
  list(){return Object.values(this.storage.read('meeting-presets.json'));}
  save(body){
   if(typeof body.name!=='string'||!body.name.trim()||body.name.length>100)throw Error('Enter a setup name under 100 characters.');
-  const settings=body.settings;if(!settings||!['tab','app','microphone'].includes(settings.kind))throw Error('Choose an audio source.');
+  const settings=body.settings;if(!settings||!['tab','app','microphone','system'].includes(settings.kind))throw Error('Choose an audio source.');
   if(!['meeting','interview'].includes(settings.responseStyle)||!['meeting','microphone','all'].includes(settings.detectionTrack))throw Error('Choose valid answer settings.');
   for(const key of ['microphone','autoAnswer'])if(typeof settings[key]!=='boolean')throw Error('Invalid audio or answer setting.');
   for(const key of ['agentId','appBundleId'])if(settings[key]!==undefined&&(typeof settings[key]!=='string'||settings[key].length>200))throw Error('Invalid agent or app.');

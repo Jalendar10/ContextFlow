@@ -1,16 +1,16 @@
 export class BrowserAudio {
  constructor(){this.streams=[];this.nodes=[];this.closed=false;this.queued=0;this.queue=Promise.resolve();this.flushers=[];this.worklets=[];}
  async choose(kind,microphone){
-  if(!navigator.mediaDevices?.getDisplayMedia&&kind==='tab')throw Error('Tab audio capture requires Chrome or Edge. Open ContextFlow in that browser.');
+  if(!navigator.mediaDevices?.getDisplayMedia&&['tab','system'].includes(kind))throw Error('Tab audio capture requires Chrome or Edge. Open ContextFlow in that browser.');
   this.context=new AudioContext({sampleRate:24000});
   // Resume during the Start click, before the picker or backend awaits consume activation.
   this.resumePromise=this.context.resume().catch(()=>{});
-  if(kind==='tab'){
+  if(kind==='tab'||kind==='system'){
    let controller;
    if(globalThis.CaptureController?.prototype?.setFocusBehavior){controller=new CaptureController();controller.setFocusBehavior('no-focus-change');}
-   const media=await navigator.mediaDevices.getDisplayMedia({...(controller?{controller}:{}),video:{displaySurface:'browser'},audio:true,systemAudio:'exclude',selfBrowserSurface:'exclude',surfaceSwitching:'exclude'});this.streams.push(media);
-   if(media.getVideoTracks()[0]?.getSettings().displaySurface!=='browser')throw Error('Select a browser tab, not a screen or window. Use app audio for desktop applications.');
-   if(!media.getAudioTracks().length)throw Error('No tab audio was shared. Choose the tab and enable Share tab audio in the browser picker.');this.label=media.getVideoTracks()[0].label||'Selected browser tab';this.meeting=media;
+   const media=await navigator.mediaDevices.getDisplayMedia({...(controller?{controller}:{}),video:{displaySurface:kind==='system'?'monitor':'browser'},audio:true,systemAudio:kind==='system'?'include':'exclude',selfBrowserSurface:'exclude',surfaceSwitching:'exclude'});this.streams.push(media);
+   if(kind==='tab'&&media.getVideoTracks()[0]?.getSettings().displaySurface!=='browser')throw Error('Select a browser tab, not a screen or window. Use app audio for desktop applications.');
+   if(!media.getAudioTracks().length)throw Error(kind==='system'?'No system audio was shared. Choose Entire screen and enable system audio in Chrome or Edge.':'No tab audio was shared. Choose the tab and enable Share tab audio in the browser picker.');this.label=media.getVideoTracks()[0].label||'Selected browser tab';this.meeting=media;
   }
   if(kind==='microphone'||microphone){const media=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});this.streams.push(media);this.microphone=media;if(kind==='microphone')this.label='Microphone';}
  }
