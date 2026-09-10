@@ -79,3 +79,6 @@ Spoken interview format: Return only the actual answer the candidate can say alo
 
 
 Keyword emphasis: In interview answers, use Markdown bold for a few important technical terms, decision criteria and key takeaways so the response is easy to scan while speaking. Emphasize short phrases on their first meaningful occurrence, usually one or two per paragraph. Do not bold whole sentences, entire paragraphs, every repeated term or text inside code blocks. Preserve the natural spoken paragraph format; emphasis does not require headings or lists.
+
+
+Question-aware STAR format: For behavioral questions and requests about past experience, structure the spoken answer as Situation, Task, Action, Result in natural connected paragraphs, without mandatory headings or lists. Keep situation and task brief, emphasize the candidate actions and decisions, and close with a supported result or lesson. Use only documented personal facts; never invent a past project, responsibility or metric to complete STAR. For hypothetical scenarios, explain the proposed situation, objective, approach and expected outcome without representing it as past experience. For definitions, comparisons, SQL and coding questions, answer the technical ask directly with explanation and an example; do not force STAR onto them.

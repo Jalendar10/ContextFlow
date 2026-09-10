@@ -116,7 +116,7 @@ body select,body textarea,body input:not([type=checkbox]):not([type=radio]):not(
 body select option,body select optgroup{background:white;color:#1d1d1f}
 body input::placeholder,body textarea::placeholder{color:#76767c!important}
 .cf-modal p,.meeting-info,.model-key-intro,.model-settings-footnote,.model-role-card>p,.cf-chat-welcome p{color:#515154!important}
-.cf-modal .meeting-question p,.cf-modal .meeting-turn p{color:#29292c!important;font-size:15px!important}
+.cf-modal .meeting-question p,.cf-modal .meeting-turn p{color:#29292c!important;font-size:15px}
 .model-role-title,.model-key-heading,.model-key-top b,.model-role-card label{color:#1d1d1f}
 .code-toolbar{background:#edf1f6;border-color:#dedee3}
 .copyable-code{border-color:#dedee3}
@@ -219,4 +219,6 @@ body input::placeholder,body textarea::placeholder{color:#76767c!important}
 @media(max-width:720px){.cf-modal.agents-workspace{padding:16px}.agents-workspace .cf-modal-tabs{top:-16px}}
 
 /* Adjustable live response reading size. */
-.meeting-text-size{display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}.meeting-text-size input[type="range"]{width:110px;min-width:0;accent-color:#0071e3}.meeting-text-size output{min-width:34px}.meeting-response-content .meeting-question :is(p,li,blockquote,h4,.meeting-response-toggle){font-size:var(--response-text-size);line-height:1.6}.meeting-response-content .meeting-question pre{font-size:calc(var(--response-text-size) * .85)}
+.meeting-text-size{display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}.meeting-text-size input[type="range"]{width:110px;min-width:0;accent-color:#0071e3}.meeting-text-size output{min-width:34px}.meeting-response-content .meeting-question .meeting-answer-text :is(p,li,blockquote,h1,h2,h3,h4,h5,h6){font-size:var(--response-text-size)!important;line-height:1.6}.meeting-response-content .meeting-answer-text pre{font-size:calc(var(--response-text-size) * .85)}
+
+.meeting-response-content .meeting-answer-text{font-size:var(--response-text-size,18px);line-height:1.6}
