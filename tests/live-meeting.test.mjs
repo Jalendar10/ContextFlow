@@ -64,17 +64,19 @@ test('clear questions bypass a blocked detector and two answers can start togeth
   assert.ok(s.questions.every(q=>q.status==='complete'));
  }finally{releaseDetector();releases.forEach(r=>r());h.meeting.discard()}
 });
-test('live speed preference only changes supported GPT-5.5 reasoning requests',async()=>{
+test('live speed preference only changes supported GPT reasoning requests',async()=>{
  const directory=mkdtempSync(path.join(os.tmpdir(),'cf-fast-'));
  try{
   const config=new ProviderConfig({directory,env:{}});config.setKey('openai','fixture-key');
   const bodies=[];
   const ai=new ProviderAI({config,fetcher:async(url,options)=>{bodies.push(JSON.parse(options.body));return {ok:true,json:async()=>({output:[{content:[{type:'output_text',text:'Answer'}]}]})}}});
-  for(const [model,latencySensitive] of [['gpt-5.5',true],['gpt-5.5',false],['gpt-5.5-pro',true]]){
+  for(const [model,latencySensitive] of [['gpt-5.5',true],['gpt-5.5',false],['gpt-5.5-pro',true],['gpt-5.6-sol',true],['gpt-5.6',true],['gpt-5.6-sol',false],['gpt-5.6-pro',true],['gpt-5.6-sol-2026-09-01',true]]){
    await ai.generateOnce({selection:{provider:'openai',model},question:'q',evidence:[],latencySensitive});
   }
   assert.deepEqual(bodies[0].reasoning,{effort:'none'});
   assert.equal(bodies[1].reasoning,undefined);assert.equal(bodies[2].reasoning,undefined);
+  for(const i of [3,4,7])assert.deepEqual(bodies[i].reasoning,{effort:'none'});
+  for(const i of [5,6])assert.equal(bodies[i].reasoning,undefined);
  }finally{rmSync(directory,{recursive:true,force:true})}
 });
 
@@ -87,8 +89,8 @@ test('interview mic is context only; both speakers and marked passages ground fo
   h.meeting.consider(s.id,s.turns[0].id,true);assert.equal(h.calls.length,0);assert.equal(h.meeting.view().turns[0].considered,true);
   h.pipes[0].onText({track:'meeting',text:'What was your approach?',final:true,boundary:true});
   await s.answerChain;
-  const input=JSON.parse(h.calls[0].question);assert.match(input.meetingContext,/reporting work/);assert.match(input.meetingContext,/your approach/);assert.match(input.consideredContext,/reporting work/);
-  assert.equal(input.referenceContent.content,'JD: SQL engineer');assert.equal(input.referenceContent.additionalContent,'Résumé: SQL reporting');assert.deepEqual(h.calls[0].evidence,[]);assert.match(h.calls[0].system,/ONLY on these JD/);
+  const input=JSON.parse(h.calls[0].question);assert.match(input.meetingContext,/reporting work/);assert.match(input.meetingContext,/your approach/);assert.equal(input.consideredContext,''); // Already included in meetingContext; do not send it twice.
+  assert.equal(input.referenceContent.content,'JD: SQL engineer');assert.equal(input.referenceContent.additionalContent,'Résumé: SQL reporting');assert.deepEqual(h.calls[0].evidence,[]);assert.match(h.calls[0].system,/Use general technical knowledge/);assert.doesNotMatch(h.calls[0].system,/Base answer facts ONLY/);
   h.meeting.assess(s.id);await s.answerChain;assert.match(h.calls.at(-1).system,/ASSESSMENT REQUEST/);assert.equal(s.questions.at(-1).track,'assessment');
   h.meeting.consider(s.id,s.turns[0].id,false);assert.equal(s.turns[0].considered,false);
  }finally{h.meeting.discard()}
@@ -101,5 +103,7 @@ test('split questions retain both fragments and microphone answer in the respons
   const text=JSON.parse(h.calls[0].question).meetingContext;assert.match(text,/Can you explain the/);assert.match(text,/I used SQL reports/);assert.match(text,/reporting approach/);
  }finally{h.meeting.discard()}
 });
-test('meeting details are retained and supplied to answers with a selected agent',async()=>{const h=harness();h.meeting.agents={get:()=>({id:'agent',name:'Interview agent',provider:'ollama',model:'test-local',responseStyle:'interview',context:{content:'JD',additionalContent:'Resume'}})};try{await h.meeting.start({kind:'tab',autoAnswer:false,agentId:'agent',details:{type:'Technical interview',role:'Data engineer',notes:'Focus on SQL trade-offs'}});const s=h.meeting.session;h.meeting.manual(s.id,'Explain the reporting approach');await s.answerChain;assert.equal(h.meeting.view().details.type,'Technical interview');assert.equal(JSON.parse(h.calls[0].question).meetingDetails.notes,'Focus on SQL trade-offs');assert.equal(JSON.parse(h.calls[0].question).referenceContent.content,'JD');}finally{h.meeting.discard()}});
+test('selected agent interview stage overrides old meeting setup details',async()=>{const h=harness();h.meeting.agents={get:()=>({id:'agent',name:'Interview agent',interview:{detectedStage:'Technical interview'},provider:'ollama',model:'test-local',responseStyle:'interview',context:{content:'JD',additionalContent:'Resume'}})};try{await h.meeting.start({kind:'tab',autoAnswer:false,agentId:'agent',details:{type:'Technical interview',role:'Data engineer',notes:'Focus on SQL trade-offs'}});const s=h.meeting.session;h.meeting.manual(s.id,'Explain the reporting approach');await s.answerChain;assert.equal(h.meeting.view().details.type,'Technical interview');assert.equal(JSON.parse(h.calls[0].question).meetingDetails.notes,'');assert.equal(JSON.parse(h.calls[0].question).referenceContent.content,'JD');}finally{h.meeting.discard()}});
 test('native app capture launches the selected platform helper and accepts its PCM stream',async()=>{const h=harness();await h.meeting.start({kind:'tab',autoAnswer:false});const s=h.meeting.session;let launched,received=0;const child=new EventEmitter();child.stdin=new EventEmitter();child.stdin.end=()=>{};child.stdout=new EventEmitter();child.stderr={resume(){}};child.kill=()=>{};h.meeting.launch=(binary,args)=>{launched={binary,args};return child};h.meeting.desktop.binary='C:\\ContextFlow\\ContextFlowAudio.exe';s.source={kind:'app',pid:321,bundleId:'ms-teams'};s.streams.get('meeting').write=buffer=>{received+=buffer.length};try{h.meeting.native(s,false);assert.equal(launched.binary,h.meeting.desktop.binary);assert.deepEqual(launched.args.slice(0,3),['record','321','ms-teams']);child.stdout.emit('data',JSON.stringify({event:'pcm',track:'app',data:Buffer.alloc(9600).toString('base64')})+'\n');assert.equal(received,9600);}finally{h.meeting.discard()}});
+test('latest request uses both speakers in one answer call and history can be disabled',async()=>{const h=harness();await h.meeting.start({kind:'tab',autoAnswer:false,microphone:true});const s=h.meeting.session;try{for(const [track,text] of [['meeting','Explain your reporting work?'],['microphone','I built SQL reports.'],['meeting','How did you validate them?'],['microphone','Do you mean reconciliation?']])h.meeting.transcript(s,{track,text,final:true,boundary:true});h.meeting.respondToTurn(s.id,'latest');await s.answerChain;assert.equal(h.calls.length,1);let input=JSON.parse(h.calls[0].question);assert.match(input.question,/validate/);assert.match(input.meetingContext,/SQL reports/);assert.match(input.meetingContext,/reconciliation/);assert.match(input.requestIntent,/latest interviewer/);h.meeting.setTranscriptContext(s.id,false);h.meeting.respondToTurn(s.id,'latest');await s.answerChain;input=JSON.parse(h.calls.at(-1).question);assert.equal(input.meetingContext,'');assert.equal(input.consideredContext,'');assert.equal(input.usePreviousTranscript,false);assert.match(input.targetTranscript.text,/validate/);}finally{h.meeting.discard()}});
+test('asking about an older transcript does not inject later unrelated turns',async()=>{const h=harness();await h.meeting.start({kind:'tab',autoAnswer:false});const s=h.meeting.session;try{h.meeting.transcript(s,{track:'meeting',text:'Explain SQL reporting?',final:true,boundary:true});const id=s.turns[0].id;h.meeting.transcript(s,{track:'microphone',text:'Later unrelated subject',final:true,boundary:true});h.meeting.respondToTurn(s.id,id);await s.answerChain;assert.doesNotMatch(JSON.parse(h.calls[0].question).meetingContext,/unrelated/);}finally{h.meeting.discard()}});

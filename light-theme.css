@@ -195,3 +195,28 @@ body input::placeholder,body textarea::placeholder{color:#76767c!important}
 .meeting-presets input,.meeting-presets select{padding:8px;min-height:36px}
 .meeting-presets small{flex-basis:100%}
 .meeting-focus>.meeting-presets{display:none}
+.meeting-response-toggle{display:block;width:100%;text-align:left;border:0;background:transparent;color:inherit;font:inherit;line-height:1.5;cursor:pointer;padding:4px 0;white-space:normal}
+.meeting-response-toggle:hover{color:#0071e3}
+.meeting-response-toggle:focus-visible{outline:2px solid #0071e3;outline-offset:3px;border-radius:4px}
+.meeting-follow-latest{align-self:center;flex-shrink:0;margin:4px 0}
+.meeting-question [hidden]{display:none!important}
+.meeting-column-heading{flex-wrap:wrap;gap:8px}
+.meeting-transcript-context{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.meeting-transcript-context input{width:15px;height:15px;margin:0}
+.agents-view fieldset{border:0;padding:0;margin:16px 0;min-width:0}
+.agent-library-list{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.agent-library-list button{white-space:normal;text-align:left}
+.skill-preview{max-height:240px;overflow:auto;white-space:pre-wrap;padding:12px;background:#f5f5f7;border-radius:10px;color:#1d1d1f;font-size:13px}
+.agent-test{border-top:1px solid #d2d2d7;margin-top:20px;padding-top:16px}
+.agents-workspace-backdrop{padding:0;align-items:stretch;background:#f5f5f7;backdrop-filter:none}
+.cf-modal.agents-workspace{width:100vw!important;max-width:none!important;height:100dvh;max-height:100dvh!important;border:0;border-radius:0;box-shadow:none;padding:24px 36px;overflow:auto;box-sizing:border-box}
+.agents-workspace .agents-view{width:100%;max-width:none;margin:0}
+.agents-workspace .agents-view>h2{padding-right:48px;margin-top:0}
+.agents-workspace .cf-modal-tabs{position:sticky;top:-24px;background:#f5f5f7;z-index:2;padding:12px 0}
+.agents-workspace .agent-library-list{padding:14px;background:white;border:1px solid #e5e5ea;border-radius:12px}
+.agents-workspace textarea{min-height:140px}
+.agents-workspace .agent-test{padding:20px;background:white;border:1px solid #e5e5ea;border-radius:12px}
+@media(max-width:720px){.cf-modal.agents-workspace{padding:16px}.agents-workspace .cf-modal-tabs{top:-16px}}
+
+/* Adjustable live response reading size. */
+.meeting-text-size{display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}.meeting-text-size input[type="range"]{width:110px;min-width:0;accent-color:#0071e3}.meeting-text-size output{min-width:34px}.meeting-response-content .meeting-question :is(p,li,blockquote,h4,.meeting-response-toggle){font-size:var(--response-text-size);line-height:1.6}.meeting-response-content .meeting-question pre{font-size:calc(var(--response-text-size) * .85)}

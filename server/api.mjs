@@ -1,3 +1,4 @@
+import {Skills} from './skills.mjs';
 import {platformInfo} from './platform.mjs';
 import {MeetingPresets} from './meeting-presets.mjs';
 import {extractDocument} from './document-text.mjs';
@@ -17,6 +18,7 @@ function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),public
  desktop ||= new Desktop({ai,store});
  const history=new MeetingHistory(workspaceDirectory?pathModule.join(workspaceDirectory,'meetings'):undefined);
  const agents=new AgentProfiles(ai,workspaceDirectory?new ProviderConfig({directory:workspaceDirectory}):ai.config);
+ const skills=new Skills(agents.storage||new ProviderConfig(),ai);agents.skillLibrary=skills;
  const presets=new MeetingPresets(agents.storage||new ProviderConfig());
  meeting ||= new LiveMeeting({ai,store,desktop,history,agents});
  const localOrigins=new Set(['http://localhost:5173','http://127.0.0.1:5173','http://localhost:4173','http://127.0.0.1:4173']);
@@ -44,6 +46,7 @@ function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),public
    if(path.startsWith('/api/meetings/')){const id=path.split('/').pop();if(req.method==='GET')return reply(200,history.get(id));if(req.method==='DELETE'){if(meeting.view().id===id)throw Error('Start another session before deleting this meeting.');history.remove(id);return reply(200,{ok:true});}}
    if(path==='/api/meeting-presets'&&req.method==='GET')return reply(200,{presets:presets.list()});
    if(path.startsWith('/api/meeting-presets/')&&req.method==='DELETE'){presets.remove(path.split('/').pop());return reply(200,{ok:true});}
+   if(path==='/api/skills'&&req.method==='GET')return reply(200,{skills:skills.list()});
    if(path==='/api/agents'&&req.method==='GET')return reply(200,{agents:agents.list()});
    if(path.startsWith('/api/agents/')&&req.method==='DELETE'){agents.remove(path.split('/').pop());return reply(200,{ok:true});}
    if(path==='/api/usage'&&req.method==='GET')return reply(200,{transactions:ai.usage.list(),rates:ai.usage.rates()});
@@ -95,6 +98,11 @@ function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),public
    if(path==='/api/desktop/audio'&&req.method==='POST')return reply(200,await desktop.start(body.app,body.microphone===true));
    if(path==='/api/connections'&&req.method==='POST')return reply(200,await ai.addConnection(body));
    if(path==='/api/meeting-presets'&&req.method==='POST')return reply(200,{preset:presets.save(body)});
+   if(path==='/api/skills'&&req.method==='POST')return reply(200,{skill:skills.save(body)});
+   if(path==='/api/skills/generate'&&req.method==='POST')return reply(200,await skills.generate(body));
+   if(path==='/api/agents/test'&&req.method==='POST')return reply(200,await agents.test(body));
+   if(path==='/api/agent-guidance'&&req.method==='POST')return reply(200,await agents.guidance(body));
+   if(path==='/api/live/transcript-context'&&req.method==='PUT')return reply(200,meeting.setTranscriptContext(body.id,body.enabled));
    if(path==='/api/agents'&&req.method==='POST')return reply(200,{agent:await agents.save(body)});
    if(path==='/api/usage/rate'&&req.method==='PUT'){ai.usage.setRate(body.key,body.rate);return reply(200,{ok:true});}
    if(path==='/api/transcription-mode'&&req.method==='PUT')return reply(200,await ai.setTranscriptionMode(body.mode));

@@ -11,7 +11,7 @@ export class MeetingPresets{
   for(const key of ['microphone','autoAnswer'])if(typeof settings[key]!=='boolean')throw Error('Invalid audio or answer setting.');
   for(const key of ['agentId','appBundleId'])if(settings[key]!==undefined&&(typeof settings[key]!=='string'||settings[key].length>200))throw Error('Invalid agent or app.');
   const records=this.storage.read('meeting-presets.json');if(body.id&&!records[body.id])throw Error('Saved setup not found.');if(!body.id&&Object.keys(records).length>=50)throw Error('Save up to 50 meeting setups.');
-  const preset={id:body.id||randomUUID(),name:body.name.trim(),settings:{kind:settings.kind,appBundleId:settings.appBundleId||'',microphone:settings.microphone,autoAnswer:settings.autoAnswer,agentId:settings.agentId||'',responseStyle:settings.responseStyle,detectionTrack:settings.detectionTrack,details:{type:meetingDetails(settings.details).type},context:meetingContext(settings.context)},updatedAt:new Date().toISOString()};
+  const preset={id:body.id||randomUUID(),name:body.name.trim(),settings:{kind:settings.kind,appBundleId:settings.appBundleId||'',microphone:settings.microphone,autoAnswer:settings.autoAnswer,usePreviousTranscript:settings.usePreviousTranscript!==false,agentId:settings.agentId||'',responseStyle:settings.responseStyle,detectionTrack:settings.detectionTrack,details:{type:meetingDetails(settings.details).type},context:meetingContext(settings.context)},updatedAt:new Date().toISOString()};
   records[preset.id]=preset;this.storage.write('meeting-presets.json',records);return preset;
  }
  remove(id){const records=this.storage.read('meeting-presets.json');if(!records[id])throw Error('Saved setup not found.');delete records[id];this.storage.write('meeting-presets.json',records);}
