@@ -1,3 +1,4 @@
+import {openResponseWindow} from './response-window.mjs';
 import {Skills} from './skills.mjs';
 import {platformInfo} from './platform.mjs';
 import {MeetingPresets} from './meeting-presets.mjs';
@@ -34,6 +35,7 @@ function createWorkspaceApi({store=new ContextStore(),ai=new ProviderAI(),public
   const controller=new AbortController();res.on('close',()=>{if(!res.writableEnded)controller.abort()});
   try{
    const parsed=new URL(req.url,'http://localhost'),path=parsed.pathname;
+   if(path==='/api/response-window'&&req.method==='POST')return reply(200,await openResponseWindow(workspaceId));
    if(path==='/api/platform'&&req.method==='GET')return reply(200,platformInfo());
    if(path==='/api/workspaces'&&req.method==='GET')return reply(200,{workspaces:registry.list(),current:workspaceId});
    if(/^\/api\/meetings\/[^/]+\/recording$/.test(path)&&req.method==='GET'){

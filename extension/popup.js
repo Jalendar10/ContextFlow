@@ -4,3 +4,5 @@ document.querySelector('#open').onclick=async()=>{
  else await chrome.tabs.create({url:'http://localhost:5173/'});
  window.close();
 };
+
+document.querySelector('#responses').onclick=async()=>{const tabs=await chrome.tabs.query({url:['http://localhost:5173/*']});const url=new URL(tabs[0]?.url||'http://localhost:5173/');url.searchParams.set('responses','1');await chrome.tabs.create({url:url.href});window.close()};

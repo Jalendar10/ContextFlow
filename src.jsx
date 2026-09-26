@@ -1,3 +1,4 @@
+import ResponseWindow from './components/ResponseWindow.jsx';
 import {resolveSourceTab} from './browser-source.js';
 import {wordGutters,formattedStats} from './source-word-budget.js';
 import cleanFormattedContent,{normalizeCleanup} from './formatted-content.js';
@@ -102,4 +103,4 @@ function App(){
  </section></div>}{toast&&<div className="cf-toast" role="status"><Check size={15}/>{toast}</div>}</div>;
 }
 function LockIcon(){return <ShieldCheck size={13} className="workspace-lock"/>}
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(new URLSearchParams(location.search).has('responses')?<ResponseWindow/>:<App/>);

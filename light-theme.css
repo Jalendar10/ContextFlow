@@ -222,3 +222,5 @@ body input::placeholder,body textarea::placeholder{color:#76767c!important}
 .meeting-text-size{display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}.meeting-text-size input[type="range"]{width:110px;min-width:0;accent-color:#0071e3}.meeting-text-size output{min-width:34px}.meeting-response-content .meeting-question .meeting-answer-text :is(p,li,blockquote,h1,h2,h3,h4,h5,h6){font-size:var(--response-text-size)!important;line-height:1.6}.meeting-response-content .meeting-answer-text pre{font-size:calc(var(--response-text-size) * .85)}
 
 .meeting-response-content .meeting-answer-text{font-size:var(--response-text-size,18px);line-height:1.6}
+
+.response-window{height:100dvh;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:18px;background:#f5f5f7;color:#1d1d1f}.response-window h2{font-size:18px}.response-window header label{display:flex;gap:10px;align-items:center}.response-window small{font-size:12px}.response-window button{padding:8px;border:1px solid #ddd;border-radius:8px;background:white;color:#174b80}
